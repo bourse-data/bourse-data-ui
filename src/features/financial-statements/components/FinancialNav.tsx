@@ -154,8 +154,6 @@ export default function FinancialNav({selectedSheetId, onSelectSheet}: Financial
             <div className="min-w-0 rounded-xl border border-border/50 bg-surface px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <strong className="text-sm text-text">{selectedSheet.fa}</strong>
-                    <span
-                        className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">Sheet {selectedSheet.value}</span>
                 </div>
                 <p className="mt-1 truncate text-xs text-muted" dir="ltr">{selectedSheet.en}</p>
             </div>

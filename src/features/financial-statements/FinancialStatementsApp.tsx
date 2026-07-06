@@ -1,5 +1,16 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {AlertCircle, Database, Loader2, RefreshCw, Search, X} from 'lucide-react';
+import {
+    AlertCircle,
+    Calendar,
+    Database,
+    FileText,
+    Layers,
+    Loader2,
+    RefreshCw,
+    RotateCcw,
+    Search,
+    X
+} from 'lucide-react';
 import type {CompanySuggestion} from '../../types/codal';
 import {searchMarketSymbols} from '../../lib/api';
 import {appConfig} from '../../config/appConfig';
@@ -7,6 +18,7 @@ import CompanySearchCombobox from './CompanySearchCombobox';
 import SymbolHeader from './components/SymbolHeader';
 import AggregatedTableView from './components/AggregatedTableView';
 import {getReportSheet, REPORT_SHEETS} from './components/FinancialNav';
+import FilterSelect, {type FilterOption, type FilterOptionGroup} from './components/FilterSelect';
 import {
     type AggregatedData,
     type ConsolidationFilter,
@@ -43,6 +55,48 @@ export default function FinancialStatementsApp() {
     const [restated, setRestated] = useState<RestatedFilter>('dont-care');
     const [periodYears, setPeriodYears] = useState<PeriodFilter>(5);
 
+    // Filter options (beautiful selects)
+    const consolidationOptions: FilterOption<ConsolidationFilter>[] = [
+        {value: 'any', label: 'همه'},
+        {value: 'consolidated', label: 'تلفیقی'},
+        {value: 'non-consolidated', label: 'غیرتلفیقی'},
+    ];
+
+    const restatedOptions: FilterOption<RestatedFilter>[] = [
+        {value: 'dont-care', label: 'همه'},
+        {value: 'actual', label: 'بدون تجدید ارائه'},
+        {value: 'restated', label: 'فقط تجدید ارائه شده'},
+    ];
+
+    const periodOptions: FilterOption<PeriodFilter>[] = [1, 2, 5, 10, 20].map((p) => ({
+        value: p as PeriodFilter,
+        label: `${p} سال`,
+    }));
+
+    const sheetGroups: FilterOptionGroup<number>[] = [
+        {
+            label: 'صورت‌های مالی',
+            options: REPORT_SHEETS.filter((s) => s.group === 'financial').map((s) => ({
+                value: s.value,
+                label: s.fa,
+            })),
+        },
+        {
+            label: 'گزارش تفسیری مدیریت',
+            options: REPORT_SHEETS.filter((s) => s.group === 'interpretive').map((s) => ({
+                value: s.value,
+                label: s.fa,
+            })),
+        },
+        {
+            label: 'حسابرسی و اطلاعات شرکت',
+            options: REPORT_SHEETS.filter((s) => s.group === 'company').map((s) => ({
+                value: s.value,
+                label: s.fa,
+            })),
+        },
+    ];
+
     // Data State
     const [aggregatedData, setAggregatedData] = useState<AggregatedData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -50,6 +104,8 @@ export default function FinancialStatementsApp() {
 
     const [rowSearch, setRowSearch] = useState('');
     const requestVersionRef = useRef(0);
+
+    const selectedSheet = getReportSheet(selectedSheetId);
 
     const loadAggregatedData = useCallback(async (silent = false): Promise<boolean> => {
         if (!selectedCompany) return false;
@@ -185,110 +241,63 @@ export default function FinancialStatementsApp() {
 
                     <SymbolHeader company={selectedCompany}/>
 
-                    {/* Row 1: Main filters + refresh */}
-                    <div className="rounded-2xl border border-border/70 bg-surface p-3 shadow-card dark:shadow-none">
-                        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                            {/* Consolidation */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-muted">تلفیقی / غیرتلفیقی</span>
-                                <div
-                                    className="inline-flex rounded-xl border border-border/70 bg-surface-2 p-0.5 text-xs font-semibold">
-                                    {(['any', 'consolidated', 'non-consolidated'] as const).map((c) => {
-                                        const label = c === 'any' ? 'همه' : c === 'consolidated' ? 'تلفیقی' : 'غیرتلفیقی';
-                                        const active = consolidation === c;
-                                        return (
-                                            <button
-                                                key={c}
-                                                type="button"
-                                                onClick={() => setConsolidation(c)}
-                                                className={`px-3 py-1.5 rounded-[10px] transition-colors ${active ? 'bg-primary text-white shadow-sm' : 'hover:bg-surface text-muted hover:text-text'}`}
-                                            >
-                                                {label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                    {/* Filters - Beautiful Selects */}
+                    <div className="rounded-2xl border border-border/70 bg-surface p-4 shadow-card dark:shadow-none">
+                        <div className="flex flex-wrap items-end gap-x-4 gap-y-4">
+                            <FilterSelect
+                                label="تلفیقی / غیرتلفیقی"
+                                icon={<Layers className="h-3.5 w-3.5"/>}
+                                value={consolidation}
+                                onChange={setConsolidation}
+                                options={consolidationOptions}
+                            />
 
-                            {/* Period */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-muted">بازه مقایسه</span>
-                                <div
-                                    className="inline-flex rounded-xl border border-border/70 bg-surface-2 p-0.5 text-xs font-semibold">
-                                    {[1, 2, 5, 10, 20].map((p) => {
-                                        const active = periodYears === p;
-                                        return (
-                                            <button
-                                                key={p}
-                                                type="button"
-                                                onClick={() => setPeriodYears(p as PeriodFilter)}
-                                                className={`px-3 py-1.5 rounded-[10px] transition-colors ${active ? 'bg-primary text-white shadow-sm' : 'hover:bg-surface text-muted hover:text-text'}`}
-                                            >
-                                                {p} سال
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                            <FilterSelect
+                                label="بازه مقایسه"
+                                icon={<Calendar className="h-3.5 w-3.5"/>}
+                                value={periodYears}
+                                onChange={setPeriodYears}
+                                options={periodOptions}
+                            />
 
-                            {/* Restated */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-muted">تجدید ارائه</span>
-                                <div
-                                    className="inline-flex rounded-xl border border-border/70 bg-surface-2 p-0.5 text-xs font-semibold">
-                                    {([
-                                        {v: 'dont-care', l: 'همه'},
-                                        {v: 'actual', l: 'بدون تجدید'},
-                                        {v: 'restated', l: 'فقط تجدید'},
-                                    ] as const).map(({v, l}) => {
-                                        const active = restated === v;
-                                        return (
-                                            <button
-                                                key={v}
-                                                type="button"
-                                                onClick={() => setRestated(v)}
-                                                className={`px-3 py-1.5 rounded-[10px] transition-colors ${active ? 'bg-primary text-white shadow-sm' : 'hover:bg-surface text-muted hover:text-text'}`}
-                                            >
-                                                {l}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                            <FilterSelect
+                                label="تجدید ارائه"
+                                icon={<RotateCcw className="h-3.5 w-3.5"/>}
+                                value={restated}
+                                onChange={setRestated}
+                                options={restatedOptions}
+                            />
 
-                            {/* Refresh */}
-                            <button
-                                type="button"
-                                onClick={() => void loadAggregatedData(false)}
-                                className="ml-auto inline-flex items-center gap-2 rounded-xl border border-border/70 bg-surface px-4 py-2 text-xs font-semibold text-muted transition hover:border-primary/50 hover:text-text active:bg-surface-2"
-                            >
-                                <RefreshCw className="h-3.5 w-3.5"/>
-                                بازنسانی
-                            </button>
+                            <div className="ml-auto flex items-center">
+                                <button
+                                    type="button"
+                                    onClick={() => void loadAggregatedData(false)}
+                                    className="inline-flex h-10 items-center gap-2 rounded-2xl border border-border/70 bg-surface px-4 text-xs font-semibold text-muted transition hover:border-primary/50 hover:text-text active:bg-surface-2"
+                                >
+                                    <RefreshCw className="h-3.5 w-3.5"/>
+                                    بازنشانی
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Row 2: Statement type buttons (horizontal scroll) */}
-                    <div className="rounded-2xl border border-border/70 bg-surface p-2 shadow-card dark:shadow-none">
-                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 thin-scrollbar snap-x">
-                            {REPORT_SHEETS.map((sheet) => {
-                                const active = selectedSheetId === sheet.value;
-                                return (
-                                    <button
-                                        key={sheet.value}
-                                        type="button"
-                                        onClick={() => setSelectedSheetId(sheet.value)}
-                                        className={`snap-start whitespace-nowrap rounded-2xl border px-4 py-2 text-sm font-medium transition active:scale-[0.985] ${active
-                                            ? 'border-primary bg-primary text-white'
-                                            : 'border-border/60 bg-surface hover:border-primary/40 hover:bg-surface-2 text-text'
-                                        }`}
-                                    >
-                                        {sheet.fa}
-                                    </button>
-                                );
-                            })}
+                        {/* Statement Type - Prominent Select */}
+                        <div className="mt-4 border-t border-border/50 pt-4">
+                            <FilterSelect
+                                label="نوع صورت مالی یا گزارش"
+                                icon={<FileText className="h-3.5 w-3.5"/>}
+                                value={selectedSheetId}
+                                onChange={setSelectedSheetId}
+                                options={sheetGroups}
+                                className="max-w-full"
+                            />
+
+                            {/* Selected report info */}
+                            <div
+                                className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-surface-2/60 px-3 py-2 text-xs">
+                                <span className="font-semibold text-text">{selectedSheet.fa}</span>
+                                <span className="text-muted" dir="ltr">{selectedSheet.en}</span>
+                            </div>
                         </div>
-                        <div className="mt-0.5 text-[10px] text-muted px-1">برای دیدن همه انواع به چپ اسکرول کنید</div>
                     </div>
 
                     <section
