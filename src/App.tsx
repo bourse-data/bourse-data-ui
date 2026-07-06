@@ -1,4 +1,4 @@
-import {FileBarChart, Moon, Sun} from 'lucide-react';
+import {Moon, Sun} from 'lucide-react';
 import type {MouseEvent} from 'react';
 import {useTheme} from './hooks/useTheme';
 import FinancialStatementsApp from './features/financial-statements/FinancialStatementsApp';
@@ -17,13 +17,15 @@ export default function App() {
     return (
         <div className="min-h-full bg-bg" dir="rtl">
             <header className="sticky top-0 z-20 border-b border-border/70 bg-surface/90 backdrop-blur-md">
-                <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5">
+                <div
+                    className="mx-auto flex max-w-[1720px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary ring-1 ring-primary/20">
-                            <FileBarChart className="h-5 w-5"/>
+                        <div
+                            className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl ring-1 ring-primary/20 bg-surface">
+                            <img src="/logo.jpeg" alt="بورس دیتا" className="h-full w-full object-cover"/>
                         </div>
                         <div>
-                            <h1 className="text-base font-bold text-text">صورت‌های مالی کدال</h1>
+                            <h1 className="text-base font-bold text-text">بورس دیتا</h1>
                             <p className="text-xs text-muted">
                                 اطلاعیه‌های مالی، صورت‌های تلفیقی و میان‌دوره‌ای
                             </p>

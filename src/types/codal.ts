@@ -6,20 +6,6 @@ export type ApiResponse<T> = {
     result: T;
 };
 
-export type CompanyItem = {
-    symbol: string;
-    companyName: string;
-    companyId: string;
-    companyType: number;
-    companyState: number;
-    industryGroupCode: number;
-    reportingType: number;
-};
-
-export type CompaniesResult = {
-    companies: CompanyItem[];
-};
-
 export type FinancialNoticeItem = {
     tracingNumber: number;
     symbol: string;
@@ -105,24 +91,13 @@ export type FinancialStatementResult = {
 export type CompanySuggestion = {
     symbol: string;
     companyName: string;
+    instrumentCode?: string;
+    industry?: string;
 };
 
-export type NoticeItem = {
-    tracingNumber: number;
+export type MarketSymbol = {
+    industry: string;
+    instrumentCode: string;
     symbol: string;
-    companyName: string;
-    title: string;
-    letterCode: string;
-    sentDateTime: string;
-    publishDateTime: string;
-    reportUrl: string;
-    hasExcel: boolean;
-    hasPdf: boolean;
-    hasAttachment: boolean;
-};
-
-export type NoticeSearchResult = {
-    totalCount: number;
-    page: number;
-    notices: NoticeItem[];
+    name: string;
 };

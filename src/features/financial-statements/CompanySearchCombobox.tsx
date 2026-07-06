@@ -1,5 +1,5 @@
 import {Loader2, Search, X} from 'lucide-react';
-import {useEffect, useId, useMemo, useRef, useState, type KeyboardEvent} from 'react';
+import {type KeyboardEvent, useEffect, useId, useMemo, useRef, useState} from 'react';
 import type {CompanySuggestion} from '../../types/codal';
 import {normalizePersian} from '../../utils/normalize';
 import {useCompanySearch} from './useCompanySearch';
@@ -42,7 +42,7 @@ const mergeRecentItems = (current: CompanySuggestion[], target: CompanySuggestio
     return [target, ...filtered].slice(0, MAX_RECENT_ITEMS);
 };
 
-const HighlightedText = ({text, query}: {text: string; query: string}) => {
+const HighlightedText = ({text, query}: { text: string; query: string }) => {
     const normalizedText = normalizePersian(text);
     const normalizedQuery = normalizePersian(query).trim();
     if (normalizedQuery === '') return <>{text}</>;
@@ -61,10 +61,10 @@ const HighlightedText = ({text, query}: {text: string; query: string}) => {
 };
 
 export default function CompanySearchCombobox({
-    selectedCompany,
-    onSelectCompany,
-    placeholder = 'جستجوی نماد یا نام شرکت',
-}: CompanySearchComboboxProps) {
+                                                  selectedCompany,
+                                                  onSelectCompany,
+                                                  placeholder = 'جستجوی نماد یا نام شرکت',
+                                              }: CompanySearchComboboxProps) {
     const listboxId = useId();
     const rootRef = useRef<HTMLDivElement | null>(null);
     const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -192,7 +192,8 @@ export default function CompanySearchCombobox({
                         {!loading && error && (
                             <div className="px-3 py-4 text-sm text-negative">
                                 {error}
-                                <button className="mr-2 text-primary underline" onClick={() => void retry()} type="button">
+                                <button className="mr-2 text-primary underline" onClick={() => void retry()}
+                                        type="button">
                                     تلاش مجدد
                                 </button>
                             </div>

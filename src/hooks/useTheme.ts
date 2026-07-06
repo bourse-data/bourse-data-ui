@@ -1,8 +1,8 @@
 import {useCallback, useEffect, useState} from 'react';
 
 export type Theme = 'light' | 'dark';
-type ThemeToggleOrigin = {x: number; y: number};
-type ViewTransition = {ready: Promise<void>};
+type ThemeToggleOrigin = { x: number; y: number };
+type ViewTransition = { ready: Promise<void> };
 type DocumentWithViewTransition = Document & {
     startViewTransition?: (updateCallback: () => void) => ViewTransition;
 };
