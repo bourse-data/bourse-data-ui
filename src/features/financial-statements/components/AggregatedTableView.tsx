@@ -9,7 +9,15 @@ interface AggregatedTableViewProps {
 }
 
 function formatCellDisplay(value: string | undefined): string {
-    if (value === undefined || value.trim() === '') return '۰';
+    // An absent comparative value is not the same thing as a reported zero.
+    if (value === undefined || value.trim() === '') return '—';
+    const normalized = value.trim().replace(/,/g, '');
+    if (/^-?\d+(?:\.\d+)?$/.test(normalized)) {
+        const number = Number(normalized);
+        if (Number.isFinite(number)) {
+            return new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 2}).format(number);
+        }
+    }
     return value;
 }
 
@@ -30,11 +38,20 @@ export default function AggregatedTableView({data, rowSearch}: AggregatedTableVi
 
     return (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface">
-            <div className="thin-scrollbar max-h-[70vh] overflow-auto">
-                <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
+            <div className="thin-scrollbar relative max-h-[70vh] overflow-auto">
+                <table
+                    className="w-full table-fixed border-separate border-spacing-0 text-sm"
+                    style={{minWidth: `${300 + table.columns.length * 160}px`}}
+                >
+                    <colgroup>
+                        <col className="w-[300px]"/>
+                        {table.columns.map((column) => (
+                            <col key={column.id} className="w-[160px]"/>
+                        ))}
+                    </colgroup>
                     <thead className="sticky top-0 z-20">
                     <tr className="bg-[#e6f3ff] dark:bg-primary/20">
-                        <th className="sticky right-0 z-30 min-w-[260px] max-w-[360px] border-b-2 border-l border-border/60 bg-[#e6f3ff] px-4 py-3 text-right text-xs font-bold text-primary dark:bg-[#172943] sm:min-w-[340px]">
+                        <th className="sticky right-0 z-30 w-[300px] border-b-2 border-l border-border/60 bg-[#e6f3ff] px-3 py-2.5 text-center text-xs font-bold text-primary dark:bg-[#172943]">
                             {table.title || 'شرح سرفصل'}
                         </th>
                         {table.columns.map((column, idx) => {
@@ -43,7 +60,7 @@ export default function AggregatedTableView({data, rowSearch}: AggregatedTableVi
                             return (
                                 <th
                                     key={column.id}
-                                    className={`min-w-[170px] border-b-2 border-l border-border/60 bg-[#e6f3ff] px-4 py-3 text-center text-xs font-medium text-primary dark:bg-[#172943] ${idx > 0 ? '' : ''}`}
+                                    className={`w-[160px] border-b-2 border-l border-border/60 bg-[#e6f3ff] px-3 py-2.5 text-center text-xs font-medium text-primary dark:bg-[#172943] ${idx > 0 ? '' : ''}`}
                                 >
                                     <div className="space-y-1">
                                         <div className="font-semibold">{yearHeader}</div>
@@ -79,16 +96,22 @@ export default function AggregatedTableView({data, rowSearch}: AggregatedTableVi
                                     : rowIndex % 2 === 0
                                         ? 'bg-surface'
                                         : 'bg-surface-2/30';
+                            const stickyBackground = isSection
+                                ? 'bg-[#f2f8ff] dark:bg-[#182235]'
+                                : rowIndex % 2 === 0
+                                    ? 'bg-surface'
+                                    : 'bg-[#fafbfc] dark:bg-[#151c2a]';
 
                             return (
                                 <tr key={`${row.label}-${rowIndex}`}
                                     className={`${rowClass} group hover:bg-surface-2 transition-colors`}>
                                     <td
-                                        className={`sticky right-0 z-10 max-w-[360px] border-b border-l border-border/40 bg-inherit px-4 py-3 text-right text-sm ${
+                                        className={`sticky right-0 z-20 w-[300px] border-b border-l border-border/40 px-3 py-2.5 text-center text-sm shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.8)] ${stickyBackground} ${
                                             isSection ? 'font-bold text-primary' : isSubtotal ? 'font-bold text-text' : 'text-text'
                                         }`}
                                     >
-                                        <span className="block whitespace-normal leading-6">{row.label}</span>
+                                        <span
+                                            className="block whitespace-normal break-words leading-6">{row.label}</span>
                                     </td>
                                     {table.columns.map((column) => {
                                         const rawValue = row.values[column.id];
@@ -98,14 +121,14 @@ export default function AggregatedTableView({data, rowSearch}: AggregatedTableVi
                                         return (
                                             <td
                                                 key={`${row.label}-${column.id}`}
-                                                className={`border-b border-l border-border/30 px-4 py-3 text-sm ${
-                                                    isTextRow ? 'min-w-[420px] whitespace-normal text-right leading-7' : `text-center ${ltrNumericClassName}`
+                                                className={`w-[160px] max-w-[160px] border-b border-l border-border/30 px-2 py-2.5 text-center text-sm ${
+                                                    isTextRow ? 'whitespace-normal break-words leading-7' : `overflow-hidden text-ellipsis whitespace-nowrap tabular-nums ${ltrNumericClassName}`
                                                 } ${
                                                     isNegative ? 'text-negative' : 'text-text'
                                                 }`}
                                                 dir={isTextRow ? 'rtl' : undefined}
                                             >
-                                                <span>{displayValue}</span>
+                                                <span title={rawValue}>{displayValue}</span>
                                             </td>
                                         );
                                     })}

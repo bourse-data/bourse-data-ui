@@ -52,7 +52,7 @@ export const REPORT_SHEETS: ReportSheet[] = [
         consolidation: 'non-consolidated'
     },
     {
-        value: 3,
+        value: 0,
         fa: 'صورت وضعیت مالی',
         en: 'Statement of Financial Position (Balance Sheet)',
         group: 'financial',
@@ -124,7 +124,7 @@ type FinancialNavProps = {
 };
 
 export function getReportSheet(sheetId: number): ReportSheet {
-    return REPORT_SHEETS.find((sheet) => sheet.value === sheetId) ?? REPORT_SHEETS.find((sheet) => sheet.value === 3)!;
+    return REPORT_SHEETS.find((sheet) => sheet.value === sheetId) ?? REPORT_SHEETS.find((sheet) => sheet.value === 0)!;
 }
 
 // Note: Visual component no longer used after redesign to horizontal buttons in FinancialStatementsApp.

@@ -21,9 +21,9 @@ export const appConfig = Object.freeze({
         import.meta.env.VITE_SYMBOL_SEARCH_DEBOUNCE_MS,
         180
     ),
-    financialNoticesRefreshMs: parsePositiveInt(
-        import.meta.env.VITE_CODAL_NOTICES_REFRESH_MS,
-        300_000
+    codalRefreshIntervalMs: parsePositiveInt(
+        import.meta.env.VITE_CODAL_REFRESH_INTERVAL_MS,
+        600_000
     ),
     apiErrorRetryMs: parsePositiveInt(import.meta.env.VITE_API_ERROR_RETRY_MS, 10_000),
 });

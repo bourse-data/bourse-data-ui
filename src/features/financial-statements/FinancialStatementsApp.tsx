@@ -17,6 +17,7 @@ import {appConfig} from '../../config/appConfig';
 import CompanySearchCombobox from './CompanySearchCombobox';
 import SymbolHeader from './components/SymbolHeader';
 import AggregatedTableView from './components/AggregatedTableView';
+import NarrativeReportView from './components/NarrativeReportView';
 import {getReportSheet, REPORT_SHEETS} from './components/FinancialNav';
 import FilterSelect, {type FilterOption, type FilterOptionGroup} from './components/FilterSelect';
 import {
@@ -50,7 +51,7 @@ export default function FinancialStatementsApp() {
     const [selectedCompany, setSelectedCompany] = useState<CompanySuggestion | null>(null);
 
     // Aggregation State
-    const [selectedSheetId, setSelectedSheetId] = useState(3);
+    const [selectedSheetId, setSelectedSheetId] = useState(0);
     const [consolidation, setConsolidation] = useState<ConsolidationFilter>('any');
     const [restated, setRestated] = useState<RestatedFilter>('dont-care');
     const [periodYears, setPeriodYears] = useState<PeriodFilter>(5);
@@ -124,6 +125,7 @@ export default function FinancialStatementsApp() {
                 consolidation,
                 restated,
                 sheetId: selectedSheet.value,
+                sheetTitle: selectedSheet.fa,
             });
             if (requestVersionRef.current === requestVersion) {
                 setAggregatedData(data);
@@ -172,7 +174,7 @@ export default function FinancialStatementsApp() {
         const scheduleNextRequest = (lastRequestSucceeded: boolean) => {
             if (cancelled) return;
             const delay = lastRequestSucceeded
-                ? appConfig.financialNoticesRefreshMs
+                ? appConfig.codalRefreshIntervalMs
                 : appConfig.apiErrorRetryMs;
             retryTimer = window.setTimeout(async () => {
                 const succeeded = await loadAggregatedData(true);
@@ -323,7 +325,13 @@ export default function FinancialStatementsApp() {
                                 <div
                                     className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="text-xs text-muted">
-                                        {aggregatedData.reportCount.toLocaleString('fa-IR')} دوره مقایسه‌ای
+                                        {selectedSheet.group === 'financial'
+                                            ? `${aggregatedData.reportCount.toLocaleString('fa-IR')} دوره مقایسه‌ای${
+                                                aggregatedData.unavailableReportCount > 0
+                                                    ? ` از ${(aggregatedData.reportCount + aggregatedData.unavailableReportCount).toLocaleString('fa-IR')} دوره درخواستی`
+                                                    : ''
+                                            }`
+                                            : 'آخرین گزارش موجود'}
                                         {aggregatedData.table.unitNote ? ` • ${aggregatedData.table.unitNote}` : ''}
                                     </div>
                                     <label className="relative w-full sm:max-w-sm">
@@ -338,10 +346,11 @@ export default function FinancialStatementsApp() {
                                         />
                                     </label>
                                 </div>
-                                <AggregatedTableView
-                                    data={aggregatedData}
-                                    rowSearch={rowSearch}
-                                />
+                                {selectedSheetId === 19 ? (
+                                    <NarrativeReportView data={aggregatedData} rowSearch={rowSearch}/>
+                                ) : (
+                                    <AggregatedTableView data={aggregatedData} rowSearch={rowSearch}/>
+                                )}
                             </div>
                         ) : (
                             <div

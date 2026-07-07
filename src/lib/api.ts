@@ -51,9 +51,10 @@ export function getFinancialNotices(symbol: string, page = 1, size = 20) {
     return codalFetch<FinancialNoticeListResult>('/financial-notices', {symbol, page, size});
 }
 
-export function getFinancialStatement(letterSerial: string, sheetId?: number) {
+export function getFinancialStatement(letterSerial: string, sheetId?: number, sheetTitle?: string) {
     return codalFetch<FinancialStatementResult>('/financial-notice-statements', {
         letterSerial,
         sheetId,
+        sheetTitle,
     });
 }
