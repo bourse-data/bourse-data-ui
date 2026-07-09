@@ -1,5 +1,11 @@
 import {appConfig} from '../config/appConfig';
-import type {ApiResponse, FinancialNoticeListResult, FinancialStatementResult, MarketSymbol,} from '../types/codal';
+import type {
+    AggregatedFinancialStatementResult,
+    ApiResponse,
+    FinancialNoticeListResult,
+    FinancialStatementResult,
+    MarketSymbol,
+} from '../types/codal';
 
 async function apiFetch<T>(url: URL, signal?: AbortSignal): Promise<T> {
     const response = await fetch(url.toString(), {signal, headers: {accept: 'application/json'}});
@@ -57,4 +63,29 @@ export function getFinancialStatement(letterSerial: string, sheetId?: number, sh
         sheetId,
         sheetTitle,
     });
+}
+
+export function getAggregatedFinancialStatements(
+    symbol: string,
+    params: {
+        statementType: string;
+        consolidation: 'consolidated' | 'non-consolidated';
+        restated: 'dont-care' | 'yes' | 'no';
+        periodYears: number;
+        reportType?: 'annual';
+        sheetId?: number;
+    },
+    signal?: AbortSignal
+) {
+    return codalFetch<AggregatedFinancialStatementResult>(
+        `/symbols/${encodeURIComponent(symbol)}/financial-statements/${encodeURIComponent(params.statementType)}`,
+        {
+            consolidation: params.consolidation,
+            restated: params.restated,
+            periodYears: params.periodYears,
+            reportType: params.reportType ?? 'annual',
+            sheetId: params.sheetId,
+        },
+        signal
+    );
 }

@@ -16,6 +16,10 @@ export type FinancialNoticeItem = {
     publishDateTime: string;
     letterSerial: string;
     reportUrl: string;
+    isConsolidated: boolean;
+    isRestated: boolean;
+    fiscalYear: number | null;
+    periodEndDate: string;
     hasExcel: boolean;
     hasPdf: boolean;
     hasAttachment: boolean;
@@ -42,6 +46,7 @@ export type StatementReport = {
     periodMonths: number;
     isConsolidated: boolean;
     isAudited: boolean;
+    isRestated: boolean;
     auditedLabel: string;
     companyState: string;
     unitNote: string;
@@ -86,6 +91,32 @@ export type FinancialStatementResult = {
     report: StatementReport;
     availableSheets: AvailableSheetItem[];
     statements: StatementSheet[];
+};
+
+export type AggregatedColumnMeta = {
+    columnId: string;
+    fiscalYear: number;
+    periodEndDate: string;
+    publishDateTime: string;
+    letterSerial: string;
+    reportUrl: string;
+    tracingNumber: number;
+    isRestated: boolean;
+    isConsolidated: boolean;
+};
+
+export type AggregatedFinancialStatementResult = {
+    symbol: string;
+    statementType: string;
+    sheetId: number;
+    title: string;
+    consolidation: 'consolidated' | 'non-consolidated';
+    restated: 'dont-care' | 'yes' | 'no';
+    periodYears: number;
+    reportCount: number;
+    unavailableReportCount: number;
+    table: StatementTable;
+    columnMeta: AggregatedColumnMeta[];
 };
 
 export type CompanySuggestion = {

@@ -1,13 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {
     AlertCircle,
-    Calendar,
     Database,
-    FileText,
-    Layers,
     Loader2,
-    RefreshCw,
-    RotateCcw,
     Search,
     X
 } from 'lucide-react';
@@ -16,10 +11,9 @@ import {searchMarketSymbols} from '../../lib/api';
 import {appConfig} from '../../config/appConfig';
 import CompanySearchCombobox from './CompanySearchCombobox';
 import SymbolHeader from './components/SymbolHeader';
-import AggregatedTableView from './components/AggregatedTableView';
+import FinancialStatementsTable from './components/FinancialStatementsTable';
 import NarrativeReportView from './components/NarrativeReportView';
 import {getReportSheet, REPORT_SHEETS} from './components/FinancialNav';
-import FilterSelect, {type FilterOption, type FilterOptionGroup} from './components/FilterSelect';
 import {
     type AggregatedData,
     type ConsolidationFilter,
@@ -27,6 +21,14 @@ import {
     type PeriodFilter,
     type RestatedFilter
 } from '../../services/codalAggregationService';
+import FinancialStatementsFilterBar from './components/FinancialStatementsFilterBar';
+import {
+    type ColumnOrder,
+    type DetailMode,
+    type DisplayMode,
+    transformStatementTable,
+    type TrendMode
+} from '../../utils/statementTransforms';
 
 function readQueryParam(key: string): string | null {
     if (typeof window === 'undefined') return null;
@@ -51,52 +53,14 @@ export default function FinancialStatementsApp() {
     const [selectedCompany, setSelectedCompany] = useState<CompanySuggestion | null>(null);
 
     // Aggregation State
-    const [selectedSheetId, setSelectedSheetId] = useState(0);
-    const [consolidation, setConsolidation] = useState<ConsolidationFilter>('any');
+    const [selectedSheetId, setSelectedSheetId] = useState(3);
+    const [consolidation, setConsolidation] = useState<ConsolidationFilter>('non-consolidated');
     const [restated, setRestated] = useState<RestatedFilter>('dont-care');
     const [periodYears, setPeriodYears] = useState<PeriodFilter>(5);
-
-    // Filter options (beautiful selects)
-    const consolidationOptions: FilterOption<ConsolidationFilter>[] = [
-        {value: 'any', label: 'همه'},
-        {value: 'consolidated', label: 'تلفیقی'},
-        {value: 'non-consolidated', label: 'غیرتلفیقی'},
-    ];
-
-    const restatedOptions: FilterOption<RestatedFilter>[] = [
-        {value: 'dont-care', label: 'همه'},
-        {value: 'actual', label: 'بدون تجدید ارائه'},
-        {value: 'restated', label: 'فقط تجدید ارائه شده'},
-    ];
-
-    const periodOptions: FilterOption<PeriodFilter>[] = [1, 2, 5, 10, 20].map((p) => ({
-        value: p as PeriodFilter,
-        label: `${p} سال`,
-    }));
-
-    const sheetGroups: FilterOptionGroup<number>[] = [
-        {
-            label: 'صورت‌های مالی',
-            options: REPORT_SHEETS.filter((s) => s.group === 'financial').map((s) => ({
-                value: s.value,
-                label: s.fa,
-            })),
-        },
-        {
-            label: 'گزارش تفسیری مدیریت',
-            options: REPORT_SHEETS.filter((s) => s.group === 'interpretive').map((s) => ({
-                value: s.value,
-                label: s.fa,
-            })),
-        },
-        {
-            label: 'حسابرسی و اطلاعات شرکت',
-            options: REPORT_SHEETS.filter((s) => s.group === 'company').map((s) => ({
-                value: s.value,
-                label: s.fa,
-            })),
-        },
-    ];
+    const [detailMode, setDetailMode] = useState<DetailMode>('details');
+    const [displayMode, setDisplayMode] = useState<DisplayMode>('normal');
+    const [trendMode, setTrendMode] = useState<TrendMode>('none');
+    const [columnOrder, setColumnOrder] = useState<ColumnOrder>('desc');
 
     // Data State
     const [aggregatedData, setAggregatedData] = useState<AggregatedData | null>(null);
@@ -107,6 +71,9 @@ export default function FinancialStatementsApp() {
     const requestVersionRef = useRef(0);
 
     const selectedSheet = getReportSheet(selectedSheetId);
+    const displayTable = aggregatedData
+        ? transformStatementTable(aggregatedData.table, {detailMode, displayMode, trendMode, columnOrder})
+        : null;
 
     const loadAggregatedData = useCallback(async (silent = false): Promise<boolean> => {
         if (!selectedCompany) return false;
@@ -142,6 +109,10 @@ export default function FinancialStatementsApp() {
             if (!silent && requestVersionRef.current === requestVersion) setLoading(false);
         }
     }, [selectedCompany, selectedSheetId, consolidation, restated, periodYears]);
+
+    useEffect(() => {
+        setSelectedSheetId((current) => sheetIdForConsolidation(current, consolidation));
+    }, [consolidation]);
 
     useEffect(() => {
         const symbol = readQueryParam('symbol');
@@ -198,6 +169,34 @@ export default function FinancialStatementsApp() {
         updateQueryParams({symbol: company?.symbol ?? null, letterSerial: null});
     }, []);
 
+    const handleSelectSheet = useCallback((sheetId: number) => {
+        const sheet = getReportSheet(sheetId);
+        if (sheet.consolidation === 'consolidated' || sheet.consolidation === 'non-consolidated') {
+            setConsolidation(sheet.consolidation);
+        }
+        setSelectedSheetId(sheetId);
+        setRowSearch('');
+    }, []);
+
+    const handleExport = useCallback(() => {
+        if (!displayTable) return;
+        const header = ['شرح', ...displayTable.columns.map((column) => column.periodEndToDate || column.headers[0] || column.id)];
+        const rows = displayTable.rows.map((row) => [
+            row.label,
+            ...displayTable.columns.map((column) => row.values[column.id] ?? ''),
+        ]);
+        const csv = [header, ...rows]
+            .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], {type: 'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${selectedCompany?.symbol ?? 'financials'}-${selectedSheet.en}.csv`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+    }, [displayTable, selectedCompany?.symbol, selectedSheet.en]);
+
     return (
         <main className="mx-auto w-full max-w-[1720px] px-3 py-5 sm:px-5 lg:px-8">
             {!selectedCompany ? (
@@ -243,63 +242,41 @@ export default function FinancialStatementsApp() {
 
                     <SymbolHeader company={selectedCompany}/>
 
-                    {/* Filters - Beautiful Selects */}
-                    <div className="rounded-2xl border border-border/70 bg-surface p-4 shadow-card dark:shadow-none">
-                        <div className="flex flex-wrap items-end gap-x-4 gap-y-4">
-                            <FilterSelect
-                                label="تلفیقی / غیرتلفیقی"
-                                icon={<Layers className="h-3.5 w-3.5"/>}
-                                value={consolidation}
-                                onChange={setConsolidation}
-                                options={consolidationOptions}
-                            />
-
-                            <FilterSelect
-                                label="بازه مقایسه"
-                                icon={<Calendar className="h-3.5 w-3.5"/>}
-                                value={periodYears}
-                                onChange={setPeriodYears}
-                                options={periodOptions}
-                            />
-
-                            <FilterSelect
-                                label="تجدید ارائه"
-                                icon={<RotateCcw className="h-3.5 w-3.5"/>}
-                                value={restated}
-                                onChange={setRestated}
-                                options={restatedOptions}
-                            />
-
-                            <div className="ml-auto flex items-center">
+                    <div className="rounded-2xl border border-border/70 bg-surface p-3 shadow-card dark:shadow-none">
+                        <div className="thin-scrollbar mb-3 flex gap-2 overflow-x-auto pb-1">
+                            {REPORT_SHEETS.filter((sheet) => sheet.group === 'financial' && sheet.consolidation === consolidation).map((sheet) => (
                                 <button
+                                    key={sheet.value}
                                     type="button"
-                                    onClick={() => void loadAggregatedData(false)}
-                                    className="inline-flex h-10 items-center gap-2 rounded-2xl border border-border/70 bg-surface px-4 text-xs font-semibold text-muted transition hover:border-primary/50 hover:text-text active:bg-surface-2"
+                                    onClick={() => handleSelectSheet(sheet.value)}
+                                    className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-bold transition ${
+                                        selectedSheetId === sheet.value
+                                            ? 'border-[#1a73e8] bg-[#1a73e8] text-white'
+                                            : 'border-border/70 bg-surface-2 text-muted hover:text-text'
+                                    }`}
                                 >
-                                    <RefreshCw className="h-3.5 w-3.5"/>
-                                    بازنشانی
+                                    {sheet.fa.replace('صورت ', '')}
                                 </button>
-                            </div>
+                            ))}
                         </div>
-
-                        {/* Statement Type - Prominent Select */}
-                        <div className="mt-4 border-t border-border/50 pt-4">
-                            <FilterSelect
-                                label="نوع صورت مالی یا گزارش"
-                                icon={<FileText className="h-3.5 w-3.5"/>}
-                                value={selectedSheetId}
-                                onChange={setSelectedSheetId}
-                                options={sheetGroups}
-                                className="max-w-full"
-                            />
-
-                            {/* Selected report info */}
-                            <div
-                                className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-surface-2/60 px-3 py-2 text-xs">
-                                <span className="font-semibold text-text">{selectedSheet.fa}</span>
-                                <span className="text-muted" dir="ltr">{selectedSheet.en}</span>
-                            </div>
-                        </div>
+                        <FinancialStatementsFilterBar
+                            consolidation={consolidation}
+                            onConsolidationChange={setConsolidation}
+                            restated={restated}
+                            onRestatedChange={setRestated}
+                            periodYears={periodYears}
+                            onPeriodYearsChange={setPeriodYears}
+                            detailMode={detailMode}
+                            onDetailModeChange={setDetailMode}
+                            displayMode={displayMode}
+                            onDisplayModeChange={setDisplayMode}
+                            trendMode={trendMode}
+                            onTrendModeChange={setTrendMode}
+                            columnOrder={columnOrder}
+                            onColumnOrderChange={setColumnOrder}
+                            onRefresh={() => void loadAggregatedData(false)}
+                            onExport={handleExport}
+                        />
                     </div>
 
                     <section
@@ -348,8 +325,10 @@ export default function FinancialStatementsApp() {
                                 </div>
                                 {selectedSheetId === 19 ? (
                                     <NarrativeReportView data={aggregatedData} rowSearch={rowSearch}/>
+                                ) : displayTable ? (
+                                    <FinancialStatementsTable data={aggregatedData} table={displayTable} rowSearch={rowSearch}/>
                                 ) : (
-                                    <AggregatedTableView data={aggregatedData} rowSearch={rowSearch}/>
+                                    null
                                 )}
                             </div>
                         ) : (
@@ -365,4 +344,24 @@ export default function FinancialStatementsApp() {
             )}
         </main>
     );
+}
+
+function sheetIdForConsolidation(sheetId: number, consolidation: ConsolidationFilter): number {
+    const pairs: Record<number, { consolidated: number; nonConsolidated: number }> = {
+        14: {consolidated: 14, nonConsolidated: 3},
+        3: {consolidated: 14, nonConsolidated: 3},
+        13: {consolidated: 13, nonConsolidated: 1},
+        1: {consolidated: 13, nonConsolidated: 1},
+        15: {consolidated: 15, nonConsolidated: 9},
+        9: {consolidated: 15, nonConsolidated: 9},
+        1097: {consolidated: 1097, nonConsolidated: 1058},
+        1058: {consolidated: 1097, nonConsolidated: 1058},
+        1099: {consolidated: 1099, nonConsolidated: 1060},
+        1060: {consolidated: 1099, nonConsolidated: 1060},
+    };
+    const pair = pairs[sheetId];
+    if (!pair) {
+        return sheetId;
+    }
+    return consolidation === 'consolidated' ? pair.consolidated : pair.nonConsolidated;
 }
