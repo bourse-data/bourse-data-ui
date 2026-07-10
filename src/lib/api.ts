@@ -1,4 +1,5 @@
 import {appConfig} from '../config/appConfig';
+import type {ExportFormat} from '../utils/exportLimits';
 import type {
     AggregatedFinancialStatementResult,
     ApiResponse,
@@ -10,6 +11,9 @@ import type {
 async function apiFetch<T>(url: URL, signal?: AbortSignal): Promise<T> {
     const response = await fetch(url.toString(), {signal, headers: {accept: 'application/json'}});
     if (!response.ok) {
+        if (response.status === 429) {
+            throw new Error('کدال درخواست‌ها را محدود کرده است. چند لحظه صبر کنید و دوباره «بازنشانی» را بزنید.');
+        }
         if (response.status === 502 || response.status === 503 || response.status === 504) {
             throw new Error('سامانه کدال در حال حاضر پاسخ‌گو نیست؛ چند لحظه دیگر دوباره تلاش کنید.');
         }
@@ -85,6 +89,25 @@ export function getAggregatedFinancialStatements(
             periodYears: params.periodYears,
             reportType: params.reportType ?? 'annual',
             sheetId: params.sheetId,
+        },
+        signal
+    );
+}
+
+export function validateFinancialStatementExport(
+    params: {
+        format: ExportFormat;
+        dataRowCount: number;
+        columnCount: number;
+    },
+    signal?: AbortSignal
+) {
+    return codalFetch<{ allowed: boolean }>(
+        '/financial-statements/export/validate',
+        {
+            format: params.format,
+            dataRowCount: params.dataRowCount,
+            columnCount: params.columnCount,
         },
         signal
     );

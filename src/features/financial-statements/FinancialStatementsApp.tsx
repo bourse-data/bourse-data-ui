@@ -1,13 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {
-    AlertCircle,
-    Database,
-    Loader2,
-    Search,
-    X
-} from 'lucide-react';
+import {AlertCircle, Database, Loader2, Search, X} from 'lucide-react';
 import type {CompanySuggestion} from '../../types/codal';
-import {searchMarketSymbols} from '../../lib/api';
+import {searchMarketSymbols, validateFinancialStatementExport} from '../../lib/api';
 import {appConfig} from '../../config/appConfig';
 import CompanySearchCombobox from './CompanySearchCombobox';
 import SymbolHeader from './components/SymbolHeader';
@@ -22,13 +16,9 @@ import {
     type RestatedFilter
 } from '../../services/codalAggregationService';
 import FinancialStatementsFilterBar from './components/FinancialStatementsFilterBar';
-import {
-    type ColumnOrder,
-    type DetailMode,
-    type DisplayMode,
-    transformStatementTable,
-    type TrendMode
-} from '../../utils/statementTransforms';
+import {transformStatementTable} from '../../utils/statementTransforms';
+import {type ExportFormat, validateExportDimensions} from '../../utils/exportLimits';
+import {exportStatementCsv, exportStatementXlsx} from '../../utils/statementExport';
 
 function readQueryParam(key: string): string | null {
     if (typeof window === 'undefined') return null;
@@ -57,10 +47,6 @@ export default function FinancialStatementsApp() {
     const [consolidation, setConsolidation] = useState<ConsolidationFilter>('non-consolidated');
     const [restated, setRestated] = useState<RestatedFilter>('dont-care');
     const [periodYears, setPeriodYears] = useState<PeriodFilter>(5);
-    const [detailMode, setDetailMode] = useState<DetailMode>('details');
-    const [displayMode, setDisplayMode] = useState<DisplayMode>('normal');
-    const [trendMode, setTrendMode] = useState<TrendMode>('none');
-    const [columnOrder, setColumnOrder] = useState<ColumnOrder>('desc');
 
     // Data State
     const [aggregatedData, setAggregatedData] = useState<AggregatedData | null>(null);
@@ -68,11 +54,17 @@ export default function FinancialStatementsApp() {
     const [error, setError] = useState<string | null>(null);
 
     const [rowSearch, setRowSearch] = useState('');
+    const [exportError, setExportError] = useState<string | null>(null);
     const requestVersionRef = useRef(0);
 
     const selectedSheet = getReportSheet(selectedSheetId);
     const displayTable = aggregatedData
-        ? transformStatementTable(aggregatedData.table, {detailMode, displayMode, trendMode, columnOrder})
+        ? transformStatementTable(aggregatedData.table, {
+            detailMode: 'details',
+            displayMode: 'normal',
+            trendMode: 'none',
+            columnOrder: 'desc',
+        })
         : null;
 
     const loadAggregatedData = useCallback(async (silent = false): Promise<boolean> => {
@@ -161,6 +153,10 @@ export default function FinancialStatementsApp() {
         };
     }, [loadAggregatedData, selectedCompany]);
 
+    useEffect(() => {
+        setExportError(null);
+    }, [displayTable, periodYears, consolidation, restated, selectedSheetId]);
+
     const handleSelectCompany = useCallback((company: CompanySuggestion | null) => {
         setSelectedCompany(company);
         setAggregatedData(null);
@@ -178,23 +174,40 @@ export default function FinancialStatementsApp() {
         setRowSearch('');
     }, []);
 
-    const handleExport = useCallback(() => {
-        if (!displayTable) return;
-        const header = ['شرح', ...displayTable.columns.map((column) => column.periodEndToDate || column.headers[0] || column.id)];
-        const rows = displayTable.rows.map((row) => [
-            row.label,
-            ...displayTable.columns.map((column) => row.values[column.id] ?? ''),
-        ]);
-        const csv = [header, ...rows]
-            .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-            .join('\n');
-        const blob = new Blob([`\uFEFF${csv}`], {type: 'text/csv;charset=utf-8;'});
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `${selectedCompany?.symbol ?? 'financials'}-${selectedSheet.en}.csv`;
-        anchor.click();
-        URL.revokeObjectURL(url);
+    const handleExport = useCallback(async (format: ExportFormat) => {
+        if (!displayTable) {
+            setExportError('داده‌ای برای خروجی وجود ندارد.');
+            return;
+        }
+
+        const dimensions = {
+            dataRowCount: displayTable.rows.length,
+            columnCount: displayTable.columns.length + 1,
+        };
+        const localError = validateExportDimensions(dimensions, format);
+        if (localError) {
+            setExportError(localError);
+            return;
+        }
+
+        try {
+            await validateFinancialStatementExport({
+                format,
+                dataRowCount: dimensions.dataRowCount,
+                columnCount: dimensions.columnCount,
+            });
+        } catch (err) {
+            setExportError(err instanceof Error ? err.message : 'اعتبارسنجی خروجی ناموفق بود.');
+            return;
+        }
+
+        const filenameBase = `${selectedCompany?.symbol ?? 'financials'}-${selectedSheet.en}`;
+        if (format === 'csv') {
+            exportStatementCsv(displayTable, filenameBase);
+        } else {
+            exportStatementXlsx(displayTable, filenameBase);
+        }
+        setExportError(null);
     }, [displayTable, selectedCompany?.symbol, selectedSheet.en]);
 
     return (
@@ -244,7 +257,7 @@ export default function FinancialStatementsApp() {
 
                     <div className="rounded-2xl border border-border/70 bg-surface p-3 shadow-card dark:shadow-none">
                         <div className="thin-scrollbar mb-3 flex gap-2 overflow-x-auto pb-1">
-                            {REPORT_SHEETS.filter((sheet) => sheet.group === 'financial' && sheet.consolidation === consolidation).map((sheet) => (
+                            {REPORT_SHEETS.filter((sheet) => sheet.group !== 'financial' || sheet.consolidation === consolidation).map((sheet) => (
                                 <button
                                     key={sheet.value}
                                     type="button"
@@ -255,7 +268,7 @@ export default function FinancialStatementsApp() {
                                             : 'border-border/70 bg-surface-2 text-muted hover:text-text'
                                     }`}
                                 >
-                                    {sheet.fa.replace('صورت ', '')}
+                                    {sheet.fa.replace(/^صورت\s+/, '').replace(/^خلاصه اطلاعات گزارش تفسیری - /, 'تفسیری ')}
                                 </button>
                             ))}
                         </div>
@@ -266,16 +279,10 @@ export default function FinancialStatementsApp() {
                             onRestatedChange={setRestated}
                             periodYears={periodYears}
                             onPeriodYearsChange={setPeriodYears}
-                            detailMode={detailMode}
-                            onDetailModeChange={setDetailMode}
-                            displayMode={displayMode}
-                            onDisplayModeChange={setDisplayMode}
-                            trendMode={trendMode}
-                            onTrendModeChange={setTrendMode}
-                            columnOrder={columnOrder}
-                            onColumnOrderChange={setColumnOrder}
                             onRefresh={() => void loadAggregatedData(false)}
-                            onExport={handleExport}
+                            onExport={(format) => void handleExport(format)}
+                            exportDisabled={!displayTable || loading}
+                            exportError={exportError}
                         />
                     </div>
 
@@ -299,18 +306,10 @@ export default function FinancialStatementsApp() {
                             </div>
                         ) : aggregatedData ? (
                             <div className="mt-4">
-                                <div
-                                    className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="text-xs text-muted">
-                                        {selectedSheet.group === 'financial'
-                                            ? `${aggregatedData.reportCount.toLocaleString('fa-IR')} دوره مقایسه‌ای${
-                                                aggregatedData.unavailableReportCount > 0
-                                                    ? ` از ${(aggregatedData.reportCount + aggregatedData.unavailableReportCount).toLocaleString('fa-IR')} دوره درخواستی`
-                                                    : ''
-                                            }`
-                                            : 'آخرین گزارش موجود'}
-                                        {aggregatedData.table.unitNote ? ` • ${aggregatedData.table.unitNote}` : ''}
-                                    </div>
+                                {aggregatedData.table.unitNote ? (
+                                    <div className="mb-3 text-xs text-muted">{aggregatedData.table.unitNote}</div>
+                                ) : null}
+                                <div className="mb-3 flex justify-end">
                                     <label className="relative w-full sm:max-w-sm">
                                         <Search
                                             className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"/>
@@ -325,20 +324,12 @@ export default function FinancialStatementsApp() {
                                 </div>
                                 {selectedSheetId === 19 ? (
                                     <NarrativeReportView data={aggregatedData} rowSearch={rowSearch}/>
-                                ) : displayTable ? (
-                                    <FinancialStatementsTable data={aggregatedData} table={displayTable} rowSearch={rowSearch}/>
-                                ) : (
-                                    null
-                                )}
+                                ) : displayTable && displayTable.columns.length > 0 ? (
+                                    <FinancialStatementsTable data={aggregatedData} table={displayTable}
+                                                              rowSearch={rowSearch}/>
+                                ) : null}
                             </div>
-                        ) : (
-                            <div
-                                className="flex min-h-60 flex-col items-center justify-center gap-2 py-16 text-center text-sm text-muted">
-                                <Database className="h-8 w-8 text-border"/>
-                                <strong className="text-text">گزارش قابل نمایشی پیدا نشد</strong>
-                                <span>نوع گزارش یا بازه‌ی مقایسه را تغییر دهید.</span>
-                            </div>
-                        )}
+                        ) : null}
                     </section>
                 </div>
             )}

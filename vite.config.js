@@ -9,7 +9,7 @@ export default defineConfig(function (_a) {
     return {
         plugins: [react()],
         server: {
-            port: 5174,
+            port: 8081,
             proxy: {
                 '/api/codal': {
                     target: codalProxyTarget,

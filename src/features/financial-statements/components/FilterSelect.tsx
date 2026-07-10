@@ -20,6 +20,7 @@ type FilterSelectProps<T extends string | number = string | number> = {
     placeholder?: string;
     className?: string;
     icon?: React.ReactNode;
+    menuAlign?: 'start' | 'end';
 };
 
 function isGrouped<T extends string | number>(
@@ -36,9 +37,10 @@ export default function FilterSelect<T extends string | number = string | number
                                                                                       placeholder = 'انتخاب کنید',
                                                                                       className = '',
                                                                                       icon,
+                                                                                      menuAlign = 'end',
                                                                                   }: FilterSelectProps<T>) {
     const [open, setOpen] = useState(false);
-    const [menuStyle, setMenuStyle] = useState<{top: number; left: number; width: number} | null>(null);
+    const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
     const rootRef = useRef<HTMLDivElement | null>(null);
     const buttonRef = useRef<HTMLButtonElement | null>(null);
     const listRef = useRef<HTMLDivElement | null>(null);
@@ -55,10 +57,11 @@ export default function FilterSelect<T extends string | number = string | number
         const button = buttonRef.current;
         if (!button) return;
         const rect = button.getBoundingClientRect();
+        const width = Math.max(rect.width, 190);
         setMenuStyle({
             top: rect.bottom + 6,
-            left: rect.left,
-            width: Math.max(rect.width, 190),
+            left: menuAlign === 'end' ? rect.right - width : rect.left,
+            width,
         });
     };
 
@@ -75,7 +78,7 @@ export default function FilterSelect<T extends string | number = string | number
             window.removeEventListener('resize', handleReposition);
             window.removeEventListener('scroll', handleReposition, true);
         };
-    }, [open]);
+    }, [open, menuAlign]);
 
     // Close on outside click
     useEffect(() => {

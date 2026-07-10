@@ -1,7 +1,10 @@
-import {Download, RefreshCw} from 'lucide-react';
-import type {ColumnOrder, DetailMode, DisplayMode, TrendMode} from '../../../utils/statementTransforms';
+import {ChevronDown, Download, RefreshCw} from 'lucide-react';
+import {useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
 import FilterSelect, {type FilterOption} from './FilterSelect';
 import type {ConsolidationFilter, PeriodFilter, RestatedFilter} from '../../../services/codalAggregationService';
+import type {ExportFormat} from '../../../utils/exportLimits';
+import {CsvFormatIcon, ExcelFormatIcon} from './ExportFormatIcons';
 
 type FinancialStatementsFilterBarProps = {
     consolidation: ConsolidationFilter;
@@ -10,16 +13,10 @@ type FinancialStatementsFilterBarProps = {
     onRestatedChange: (value: RestatedFilter) => void;
     periodYears: PeriodFilter;
     onPeriodYearsChange: (value: PeriodFilter) => void;
-    detailMode: DetailMode;
-    onDetailModeChange: (value: DetailMode) => void;
-    displayMode: DisplayMode;
-    onDisplayModeChange: (value: DisplayMode) => void;
-    trendMode: TrendMode;
-    onTrendModeChange: (value: TrendMode) => void;
-    columnOrder: ColumnOrder;
-    onColumnOrderChange: (value: ColumnOrder) => void;
     onRefresh: () => void;
-    onExport: () => void;
+    onExport: (format: ExportFormat) => void;
+    exportDisabled?: boolean;
+    exportError?: string | null;
 };
 
 const consolidationOptions: FilterOption<ConsolidationFilter>[] = [
@@ -28,80 +25,54 @@ const consolidationOptions: FilterOption<ConsolidationFilter>[] = [
 ];
 
 const restatedOptions: FilterOption<RestatedFilter>[] = [
-    {value: 'dont-care', label: 'مهم نیست'},
-    {value: 'yes', label: 'آری'},
-    {value: 'no', label: 'خیر'},
+    {value: 'dont-care', label: 'همه'},
+    {value: 'yes', label: 'فقط تجدید ارائه'},
+    {value: 'no', label: 'بدون تجدید ارائه'},
 ];
 
-const periodOptions: FilterOption<PeriodFilter>[] = [1, 2, 5, 10, 20].map((value) => ({
-    value: value as PeriodFilter,
-    label: value.toLocaleString('fa-IR'),
+const periodLabels: Record<PeriodFilter, string> = {
+    1: 'یکساله',
+    2: 'دوساله',
+    5: 'پنج ساله',
+    10: 'ده ساله',
+    20: 'بیست ساله',
+};
+
+const periodOptions: FilterOption<PeriodFilter>[] = ([1, 2, 5, 10, 20] as PeriodFilter[]).map((value) => ({
+    value,
+    label: periodLabels[value],
 }));
 
-const detailOptions: FilterOption<DetailMode>[] = [
-    {value: 'details', label: 'جزئیات'},
-    {value: 'summary', label: 'خلاصه'},
-];
-const displayOptions: FilterOption<DisplayMode>[] = [
-    {value: 'normal', label: 'عادی'},
-    {value: 'vertical', label: 'عمودی'},
-];
-const trendOptions: FilterOption<TrendMode>[] = [
-    {value: 'none', label: 'بدون روند'},
-    {value: 'yoy', label: 'نسبت به سال قبل'},
-];
-const orderOptions: FilterOption<ColumnOrder>[] = [
-    {value: 'desc', label: 'نزولی'},
-    {value: 'asc', label: 'صعودی'},
-];
-
 export default function FinancialStatementsFilterBar({
-                                                          consolidation,
-                                                          onConsolidationChange,
-                                                          restated,
-                                                          onRestatedChange,
-                                                          periodYears,
-                                                          onPeriodYearsChange,
-                                                          detailMode,
-                                                          onDetailModeChange,
-                                                          displayMode,
-                                                          onDisplayModeChange,
-                                                          trendMode,
-                                                          onTrendModeChange,
-                                                          columnOrder,
-                                                          onColumnOrderChange,
-                                                          onRefresh,
-                                                          onExport,
-                                                      }: FinancialStatementsFilterBarProps) {
+                                                         consolidation,
+                                                         onConsolidationChange,
+                                                         restated,
+                                                         onRestatedChange,
+                                                         periodYears,
+                                                         onPeriodYearsChange,
+                                                         onRefresh,
+                                                         onExport,
+                                                         exportDisabled = false,
+                                                         exportError = null,
+                                                     }: FinancialStatementsFilterBarProps) {
     return (
-        <div className="rounded-xl border border-border/70 bg-surface-2/50 p-3">
-            <div className="thin-scrollbar flex min-w-max flex-row-reverse items-end gap-3 overflow-x-auto pb-1">
+        <div className="rounded-xl border border-border/70 bg-surface-2/50 p-3" dir="rtl">
+            <div className="thin-scrollbar flex min-w-max items-end justify-start gap-3 overflow-x-auto pb-1">
                 <FilterSelect label="تلفیقی" value={consolidation} onChange={onConsolidationChange}
-                              options={consolidationOptions}/>
-                <FilterSelect label="تجدید ارائه" value={restated} onChange={onRestatedChange}
-                              options={restatedOptions}/>
-                <StaticFilterField label="نوع" value="سالانه"/>
+                              options={consolidationOptions} menuAlign="end"/>
+                <FilterSelect label="تجدید ارائه شده" value={restated} onChange={onRestatedChange}
+                              options={restatedOptions} menuAlign="end"/>
                 <FilterSelect label="دوره" value={periodYears} onChange={onPeriodYearsChange}
-                              options={periodOptions}/>
-                <FilterSelect label="خلاصه/جزئیات" value={detailMode} onChange={onDetailModeChange}
-                              options={detailOptions}/>
-                <FilterSelect label="حالت" value={displayMode} onChange={onDisplayModeChange} options={displayOptions}/>
-                <FilterSelect label="روند" value={trendMode} onChange={onTrendModeChange} options={trendOptions}/>
-                <StaticFilterField label="واحد پولی" value="ریال"/>
-                <FilterSelect label="ترتیب نمایش" value={columnOrder} onChange={onColumnOrderChange}
-                              options={orderOptions}/>
-                <button
-                    type="button"
-                    onClick={onExport}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-500 px-3 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-600"
-                >
-                    <Download className="h-3.5 w-3.5"/>
-                    خروجی
-                </button>
+                              options={periodOptions} menuAlign="end"/>
+                <ExportMenu
+                    disabled={exportDisabled}
+                    error={exportError}
+                    onExport={onExport}
+                />
                 <button
                     type="button"
                     onClick={onRefresh}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg border border-border/70 bg-surface px-3 text-xs font-semibold text-muted transition hover:border-primary/50 hover:text-text"
+                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-surface px-3 text-xs font-semibold text-muted transition hover:border-primary/50 hover:text-text"
                 >
                     <RefreshCw className="h-3.5 w-3.5"/>
                     بازنشانی
@@ -111,14 +82,135 @@ export default function FinancialStatementsFilterBar({
     );
 }
 
-function StaticFilterField({label, value}: { label: string; value: string }) {
+type ExportMenuProps = {
+    disabled?: boolean;
+    error?: string | null;
+    onExport: (format: ExportFormat) => void;
+};
+
+function ExportMenu({disabled = false, error = null, onExport}: ExportMenuProps) {
+    const [open, setOpen] = useState(false);
+    const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const buttonRef = useRef<HTMLButtonElement | null>(null);
+    const listRef = useRef<HTMLDivElement | null>(null);
+    const id = useId();
+
+    const updateMenuPosition = () => {
+        const button = buttonRef.current;
+        if (!button) return;
+        const rect = button.getBoundingClientRect();
+        const width = 220;
+        setMenuStyle({
+            top: rect.bottom + 6,
+            left: rect.right - width,
+            width,
+        });
+    };
+
+    useLayoutEffect(() => {
+        if (!open) {
+            setMenuStyle(null);
+            return;
+        }
+        updateMenuPosition();
+        const handleReposition = () => updateMenuPosition();
+        window.addEventListener('resize', handleReposition);
+        window.addEventListener('scroll', handleReposition, true);
+        return () => {
+            window.removeEventListener('resize', handleReposition);
+            window.removeEventListener('scroll', handleReposition, true);
+        };
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (rootRef.current?.contains(target) || listRef.current?.contains(target)) {
+                return;
+            }
+            setOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [open]);
+
+    useEffect(() => {
+        const handleKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+        if (open) document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [open]);
+
+    const selectFormat = (format: ExportFormat) => {
+        onExport(format);
+        setOpen(false);
+    };
+
     return (
-        <div className="shrink-0">
-            <div className="mb-1.5 px-0.5 text-[11px] font-medium text-muted">{label}</div>
-            <div
-                className="flex h-9 min-w-[112px] items-center justify-center rounded-lg border border-border/50 bg-surface-2/80 px-3 text-xs font-semibold text-muted">
-                {value}
-            </div>
+        <div ref={rootRef} className="relative shrink-0">
+            <div className="mb-1.5 px-0.5 text-right text-[11px] font-medium text-muted">خروجی</div>
+            <button
+                ref={buttonRef}
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                aria-controls={`${id}-export-menu`}
+                disabled={disabled}
+                onClick={() => setOpen((current) => !current)}
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-500 px-3 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                <Download className="h-3.5 w-3.5"/>
+                <span>دریافت فایل</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}/>
+            </button>
+
+            {error && (
+                <div
+                    className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-2 text-[11px] leading-5 text-warning">
+                    {error}
+                </div>
+            )}
+
+            {open && menuStyle && typeof document !== 'undefined'
+                ? createPortal(
+                    <div
+                        id={`${id}-export-menu`}
+                        ref={listRef}
+                        role="menu"
+                        style={{
+                            position: 'fixed',
+                            top: menuStyle.top,
+                            left: menuStyle.left,
+                            width: menuStyle.width,
+                            zIndex: 1000,
+                        }}
+                        className="overflow-hidden rounded-xl border border-border/70 bg-surface p-1 shadow-card dark:shadow-none"
+                    >
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => selectFormat('xlsx')}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-text transition hover:bg-surface-2"
+                        >
+                            <span className="flex-1 text-right leading-5">خروجی Excel (.xlsx)</span>
+                            <ExcelFormatIcon className="h-6 w-6 shrink-0"/>
+                        </button>
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => selectFormat('csv')}
+                            className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-text transition hover:bg-surface-2"
+                        >
+                            <span className="flex-1 text-right leading-5">خروجی CSV (.csv)</span>
+                            <CsvFormatIcon className="h-6 w-6 shrink-0"/>
+                        </button>
+                    </div>,
+                    document.body
+                )
+                : null}
         </div>
     );
 }

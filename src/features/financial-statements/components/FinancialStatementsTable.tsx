@@ -4,7 +4,6 @@ import type {StatementTable} from '../../../types/codal';
 import type {AggregatedData} from '../../../services/codalAggregationService';
 import {ltrNumericClassName} from '../../../utils/normalize';
 import {filterTableRows, isNegativeValue, isSubtotalRow} from '../../../utils/statementRows';
-import RowSparkline from './RowSparkline';
 
 type FinancialStatementsTableProps = {
     data: AggregatedData;
@@ -48,11 +47,10 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
             <div className="thin-scrollbar relative max-h-[72vh] overflow-auto">
                 <table
                     className="w-full table-fixed border-separate border-spacing-0 text-sm"
-                    style={{minWidth: `${360 + table.columns.length * 154}px`}}
+                    style={{minWidth: `${300 + table.columns.length * 154}px`}}
                 >
                     <colgroup>
                         <col className="w-[270px]"/>
-                        <col className="w-[72px]"/>
                         {table.columns.map((column) => (
                             <col key={column.id} className="w-[154px]"/>
                         ))}
@@ -61,9 +59,6 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                     <tr className="bg-[#e6f3ff] dark:bg-[#172943]">
                         <th className="sticky right-0 z-30 border-b-2 border-l border-border/60 bg-[#e6f3ff] px-3 py-2 text-center text-xs font-bold text-primary dark:bg-[#172943]">
                             {table.title || 'شرح'}
-                        </th>
-                        <th className="border-b-2 border-l border-border/60 bg-[#e6f3ff] px-2 py-2 text-center text-xs font-bold text-primary dark:bg-[#172943]">
-                            روند
                         </th>
                         {table.columns.map((column) => {
                             const meta = data.columnMeta.find((item) => item.columnId === column.id);
@@ -74,7 +69,8 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                                 >
                                     <div className="space-y-1">
                                         <div className="font-bold">
-                                            ۱۲ ماهه منتهی به {formatHeaderDate(column.periodEndToDate || meta?.periodEndDate || '')}
+                                            ۱۲ ماهه منتهی
+                                            به {formatHeaderDate(column.periodEndToDate || meta?.periodEndDate || '')}
                                         </div>
                                         <div className={`text-[11px] opacity-80 ${ltrNumericClassName}`}>
                                             {meta?.publishDateTime || column.yearEndToDate || '—'}
@@ -104,7 +100,7 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                     <tbody>
                     {filteredRows.length === 0 ? (
                         <tr>
-                            <td colSpan={table.columns.length + 2} className="px-4 py-8 text-center text-sm text-muted">
+                            <td colSpan={table.columns.length + 1} className="px-4 py-8 text-center text-sm text-muted">
                                 داده‌ای یافت نشد.
                             </td>
                         </tr>
@@ -134,10 +130,8 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                                             isSection ? 'font-bold text-primary' : isSubtotal ? 'font-bold text-text' : 'text-text'
                                         }`}
                                     >
-                                        <span className="block whitespace-normal break-words leading-6">{row.label}</span>
-                                    </td>
-                                    <td className="border-b border-l border-border/30 px-2 py-2 text-center">
-                                        <RowSparkline row={row} columns={table.columns}/>
+                                        <span
+                                            className="block whitespace-normal break-words leading-6">{row.label}</span>
                                     </td>
                                     {table.columns.map((column) => {
                                         const rawValue = row.values[column.id];
@@ -150,7 +144,8 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                                                 } ${isNegative ? 'text-negative' : 'text-text'}`}
                                                 dir={isTextRow ? 'rtl' : undefined}
                                             >
-                                                <span title={rawValue}>{isSection ? '' : formatCellDisplay(rawValue)}</span>
+                                                <span
+                                                    title={rawValue}>{isSection ? '' : formatCellDisplay(rawValue)}</span>
                                             </td>
                                         );
                                     })}
