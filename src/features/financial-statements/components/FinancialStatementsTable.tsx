@@ -76,7 +76,8 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                                                 ? headerLines.map((header, index) => (
                                                     <div key={`${column.id}-header-${index}`}>{header}</div>
                                                 ))
-                                                : <>منتهی به {formatHeaderDate(column.periodEndToDate || meta?.periodEndDate || '')}</>}
+                                                : <>منتهی
+                                                    به {formatHeaderDate(column.periodEndToDate || meta?.periodEndDate || '')}</>}
                                         </div>
                                         {meta?.publishDateTime ? (
                                             <div className={`text-[11px] opacity-80 ${ltrNumericClassName}`}>

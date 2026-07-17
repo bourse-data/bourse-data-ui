@@ -321,8 +321,11 @@ export default function FinancialStatementsApp() {
                         ) : aggregatedData ? (
                             <div className="mt-4">
                                 {aggregatedData.unavailableReportCount > 0 ? (
-                                    <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-xs leading-6 text-warning">
-                                        {aggregatedData.reportCount} گزارش نمایش داده شد؛ برای {aggregatedData.unavailableReportCount.toLocaleString('fa-IR')} سال دیگر، شیت انتخابی وجود نداشت یا جدول آن قابل استخراج نبود.
+                                    <div
+                                        className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-xs leading-6 text-warning">
+                                        {aggregatedData.reportCount} گزارش نمایش داده شد؛
+                                        برای {aggregatedData.unavailableReportCount.toLocaleString('fa-IR')} سال دیگر،
+                                        شیت انتخابی وجود نداشت یا جدول آن قابل استخراج نبود.
                                     </div>
                                 ) : null}
                                 {aggregatedData.table.unitNote ? (
