@@ -8,8 +8,19 @@ import type {
     MarketSymbol,
 } from '../types/codal';
 
-async function apiFetch<T>(url: URL, signal?: AbortSignal): Promise<T> {
-    const response = await fetch(url.toString(), {signal, headers: {accept: 'application/json'}});
+const codalClientId = globalThis.crypto?.randomUUID?.()
+    ?? `codal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+let codalRequestSequence = 0;
+
+async function apiFetch<T>(
+    url: URL,
+    signal?: AbortSignal,
+    extraHeaders?: Record<string, string>
+): Promise<T> {
+    const response = await fetch(url.toString(), {
+        signal,
+        headers: {accept: 'application/json', ...extraHeaders},
+    });
     if (!response.ok) {
         if (response.status === 429) {
             throw new Error('کدال درخواست‌ها را محدود کرده است. چند لحظه صبر کنید و دوباره «بازنشانی» را بزنید.');
@@ -37,7 +48,8 @@ async function apiFetch<T>(url: URL, signal?: AbortSignal): Promise<T> {
 async function codalFetch<T>(
     path: string,
     params?: Record<string, string | number | boolean | undefined>,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    extraHeaders?: Record<string, string>
 ): Promise<T> {
     const url = new URL(`${appConfig.codalApiBaseUrl}${path}`, window.location.origin);
     if (params) {
@@ -48,7 +60,7 @@ async function codalFetch<T>(
         }
     }
 
-    return apiFetch<T>(url, signal);
+    return apiFetch<T>(url, signal, extraHeaders);
 }
 
 export function searchMarketSymbols(query: string, signal?: AbortSignal) {
@@ -90,7 +102,11 @@ export function getAggregatedFinancialStatements(
             reportType: params.reportType ?? 'annual',
             sheetId: params.sheetId,
         },
-        signal
+        signal,
+        {
+            'X-Codal-Client-Id': codalClientId,
+            'X-Codal-Request-Sequence': String(++codalRequestSequence),
+        }
     );
 }
 

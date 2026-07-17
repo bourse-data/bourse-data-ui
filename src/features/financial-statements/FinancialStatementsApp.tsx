@@ -56,6 +56,7 @@ export default function FinancialStatementsApp() {
     const [rowSearch, setRowSearch] = useState('');
     const [exportError, setExportError] = useState<string | null>(null);
     const requestVersionRef = useRef(0);
+    const aggregateAbortRef = useRef<AbortController | null>(null);
 
     const selectedSheet = getReportSheet(selectedSheetId);
     const displayTable = aggregatedData
@@ -75,6 +76,9 @@ export default function FinancialStatementsApp() {
             setError(null);
         }
         const requestVersion = ++requestVersionRef.current;
+        aggregateAbortRef.current?.abort();
+        const controller = new AbortController();
+        aggregateAbortRef.current = controller;
 
         try {
             const selectedSheet = getReportSheet(selectedSheetId);
@@ -85,19 +89,25 @@ export default function FinancialStatementsApp() {
                 restated,
                 sheetId: selectedSheet.value,
                 sheetTitle: selectedSheet.fa,
-            });
+            }, controller.signal);
             if (requestVersionRef.current === requestVersion) {
                 setAggregatedData(data);
                 setError(null);
             }
             return true;
         } catch (err) {
+            if (controller.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+                return false;
+            }
             if (!silent && requestVersionRef.current === requestVersion) {
                 setAggregatedData(null);
                 setError(err instanceof Error ? err.message : 'خطا در دریافت داده‌ها');
             }
             return false;
         } finally {
+            if (aggregateAbortRef.current === controller) {
+                aggregateAbortRef.current = null;
+            }
             if (!silent && requestVersionRef.current === requestVersion) setLoading(false);
         }
     }, [selectedCompany, selectedSheetId, consolidation, restated, periodYears]);
@@ -149,6 +159,8 @@ export default function FinancialStatementsApp() {
 
         return () => {
             cancelled = true;
+            aggregateAbortRef.current?.abort();
+            aggregateAbortRef.current = null;
             if (retryTimer !== undefined) window.clearTimeout(retryTimer);
         };
     }, [loadAggregatedData, selectedCompany]);
@@ -158,6 +170,8 @@ export default function FinancialStatementsApp() {
     }, [displayTable, periodYears, consolidation, restated, selectedSheetId]);
 
     const handleSelectCompany = useCallback((company: CompanySuggestion | null) => {
+        aggregateAbortRef.current?.abort();
+        aggregateAbortRef.current = null;
         setSelectedCompany(company);
         setAggregatedData(null);
         setError(null);

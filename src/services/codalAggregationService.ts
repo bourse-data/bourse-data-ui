@@ -25,7 +25,10 @@ export interface AggregatedData {
     columnMeta: AggregatedColumnMeta[];
 }
 
-export function fetchAndAggregateStatements(options: AggregationOptions): Promise<AggregatedData | null> {
+export function fetchAndAggregateStatements(
+    options: AggregationOptions,
+    signal?: AbortSignal
+): Promise<AggregatedData | null> {
     const statementType = statementTypeForSheet(options.sheetId);
     return getAggregatedFinancialStatements(options.symbol, {
         statementType,
@@ -34,7 +37,7 @@ export function fetchAndAggregateStatements(options: AggregationOptions): Promis
         periodYears: options.periodYears,
         reportType: 'annual',
         sheetId: options.sheetId,
-    }).then((result) => ({
+    }, signal).then((result) => ({
         symbol: result.symbol,
         statementType: result.statementType,
         sheetId: result.sheetId,
