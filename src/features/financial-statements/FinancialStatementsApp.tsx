@@ -43,9 +43,9 @@ export default function FinancialStatementsApp() {
     const [selectedCompany, setSelectedCompany] = useState<CompanySuggestion | null>(null);
 
     // Aggregation State
-    const [selectedSheetId, setSelectedSheetId] = useState(3);
+    const [selectedSheetId, setSelectedSheetId] = useState(0);
     const [consolidation, setConsolidation] = useState<ConsolidationFilter>('non-consolidated');
-    const [restated, setRestated] = useState<RestatedFilter>('dont-care');
+    const [restated, setRestated] = useState<RestatedFilter>('no');
     const [periodYears, setPeriodYears] = useState<PeriodFilter>(5);
 
     // Data State
@@ -306,6 +306,11 @@ export default function FinancialStatementsApp() {
                             </div>
                         ) : aggregatedData ? (
                             <div className="mt-4">
+                                {aggregatedData.unavailableReportCount > 0 ? (
+                                    <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-xs leading-6 text-warning">
+                                        {aggregatedData.reportCount} گزارش نمایش داده شد؛ برای {aggregatedData.unavailableReportCount.toLocaleString('fa-IR')} سال دیگر، شیت انتخابی وجود نداشت یا جدول آن قابل استخراج نبود.
+                                    </div>
+                                ) : null}
                                 {aggregatedData.table.unitNote ? (
                                     <div className="mb-3 text-xs text-muted">{aggregatedData.table.unitNote}</div>
                                 ) : null}
@@ -339,8 +344,9 @@ export default function FinancialStatementsApp() {
 
 function sheetIdForConsolidation(sheetId: number, consolidation: ConsolidationFilter): number {
     const pairs: Record<number, { consolidated: number; nonConsolidated: number }> = {
-        14: {consolidated: 14, nonConsolidated: 3},
-        3: {consolidated: 14, nonConsolidated: 3},
+        14: {consolidated: 14, nonConsolidated: 0},
+        0: {consolidated: 14, nonConsolidated: 0},
+        3: {consolidated: 14, nonConsolidated: 0},
         13: {consolidated: 13, nonConsolidated: 1},
         1: {consolidated: 13, nonConsolidated: 1},
         15: {consolidated: 15, nonConsolidated: 9},

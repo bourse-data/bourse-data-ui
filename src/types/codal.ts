@@ -70,6 +70,7 @@ export type StatementRow = {
 
 export type StatementTable = {
     title: string;
+    labelHeader: string;
     unitNote: string;
     columns: StatementColumn[];
     rows: StatementRow[];
@@ -111,7 +112,7 @@ export type AggregatedFinancialStatementResult = {
     sheetId: number;
     title: string;
     consolidation: 'consolidated' | 'non-consolidated';
-    restated: 'dont-care' | 'yes' | 'no';
+    restated: 'yes' | 'no';
     periodYears: number;
     reportCount: number;
     unavailableReportCount: number;

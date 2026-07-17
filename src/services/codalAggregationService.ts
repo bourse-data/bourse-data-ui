@@ -2,8 +2,8 @@ import {getAggregatedFinancialStatements} from '../lib/api';
 import type {AggregatedColumnMeta, StatementTable} from '../types/codal';
 
 export type ConsolidationFilter = 'consolidated' | 'non-consolidated';
-export type RestatedFilter = 'dont-care' | 'yes' | 'no';
-export type PeriodFilter = 1 | 2 | 5 | 10 | 20;
+export type RestatedFilter = 'yes' | 'no';
+export type PeriodFilter = 1 | 2 | 5 | 10 | 20 | 30;
 
 export interface AggregationOptions {
     symbol: string;

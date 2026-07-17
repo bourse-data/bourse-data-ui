@@ -90,6 +90,12 @@ export function sortColumns(
     rows: StatementRow[],
     order: ColumnOrder
 ): { columns: StatementColumn[]; rows: StatementRow[] } {
+    // col1/col2/... are source-order columns from CODAL (MDA, board members,
+    // subsidiaries, changes in equity, etc.). Only aggregated yearly columns
+    // use col_<year> and may be sorted chronologically.
+    if (!columns.every((column) => /^col_\d{4}$/.test(column.id))) {
+        return {columns: [...columns], rows: [...rows]};
+    }
     const sortedColumns = [...columns].sort((left, right) => {
         const leftYear = Number(left.id.replace(/\D/g, ''));
         const rightYear = Number(right.id.replace(/\D/g, ''));

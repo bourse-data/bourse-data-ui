@@ -25,9 +25,8 @@ const consolidationOptions: FilterOption<ConsolidationFilter>[] = [
 ];
 
 const restatedOptions: FilterOption<RestatedFilter>[] = [
-    {value: 'dont-care', label: 'همه'},
-    {value: 'yes', label: 'فقط تجدید ارائه'},
-    {value: 'no', label: 'بدون تجدید ارائه'},
+    {value: 'yes', label: 'آری'},
+    {value: 'no', label: 'خیر'},
 ];
 
 const periodLabels: Record<PeriodFilter, string> = {
@@ -36,9 +35,10 @@ const periodLabels: Record<PeriodFilter, string> = {
     5: 'پنج ساله',
     10: 'ده ساله',
     20: 'بیست ساله',
+    30: 'سی ساله',
 };
 
-const periodOptions: FilterOption<PeriodFilter>[] = ([1, 2, 5, 10, 20] as PeriodFilter[]).map((value) => ({
+const periodOptions: FilterOption<PeriodFilter>[] = ([1, 2, 5, 10, 20, 30] as PeriodFilter[]).map((value) => ({
     value,
     label: periodLabels[value],
 }));

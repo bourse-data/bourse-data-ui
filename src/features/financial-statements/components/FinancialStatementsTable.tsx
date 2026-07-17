@@ -58,10 +58,13 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                     <thead className="sticky top-0 z-20">
                     <tr className="bg-[#e6f3ff] dark:bg-[#172943]">
                         <th className="sticky right-0 z-30 border-b-2 border-l border-border/60 bg-[#e6f3ff] px-3 py-2 text-center text-xs font-bold text-primary dark:bg-[#172943]">
-                            {table.title || 'شرح'}
+                            {table.labelHeader || 'شرح'}
                         </th>
                         {table.columns.map((column) => {
                             const meta = data.columnMeta.find((item) => item.columnId === column.id);
+                            const headerLines = column.headers
+                                .map((header) => header.trim())
+                                .filter((header) => header !== '');
                             return (
                                 <th
                                     key={column.id}
@@ -69,12 +72,17 @@ export default function FinancialStatementsTable({data, table, rowSearch}: Finan
                                 >
                                     <div className="space-y-1">
                                         <div className="font-bold">
-                                            ۱۲ ماهه منتهی
-                                            به {formatHeaderDate(column.periodEndToDate || meta?.periodEndDate || '')}
+                                            {headerLines.length > 0
+                                                ? headerLines.map((header, index) => (
+                                                    <div key={`${column.id}-header-${index}`}>{header}</div>
+                                                ))
+                                                : <>منتهی به {formatHeaderDate(column.periodEndToDate || meta?.periodEndDate || '')}</>}
                                         </div>
-                                        <div className={`text-[11px] opacity-80 ${ltrNumericClassName}`}>
-                                            {meta?.publishDateTime || column.yearEndToDate || '—'}
-                                        </div>
+                                        {meta?.publishDateTime ? (
+                                            <div className={`text-[11px] opacity-80 ${ltrNumericClassName}`}>
+                                                {meta.publishDateTime}
+                                            </div>
+                                        ) : null}
                                         {meta ? (
                                             <div className="flex items-center justify-center gap-2 text-primary/80">
                                                 {meta.reportUrl ? (

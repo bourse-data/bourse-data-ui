@@ -74,7 +74,7 @@ export function getAggregatedFinancialStatements(
     params: {
         statementType: string;
         consolidation: 'consolidated' | 'non-consolidated';
-        restated: 'dont-care' | 'yes' | 'no';
+        restated: 'yes' | 'no';
         periodYears: number;
         reportType?: 'annual';
         sheetId?: number;
