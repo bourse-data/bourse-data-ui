@@ -107,6 +107,13 @@ export const REPORT_SHEETS: ReportSheet[] = [
         group: 'interpretive',
         consolidation: 'any'
     },
+    {
+        value: 25,
+        fa: 'خلاصه اطلاعات گزارش تفسیری - صفحه ۶',
+        en: 'Management Discussion & Analysis Summary - Page 6',
+        group: 'interpretive',
+        consolidation: 'any'
+    },
     {value: 30, fa: 'اعضای هیئت مدیره', en: 'Board of Directors', group: 'company', consolidation: 'any'},
     {value: 51, fa: 'شرکت‌های فرعی', en: 'Subsidiaries', group: 'company', consolidation: 'any'},
     {value: 52, fa: 'شرکت‌های وابسته', en: 'Associated Companies (Affiliates)', group: 'company', consolidation: 'any'},

@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {AlertCircle, Database, Loader2, Search, X} from 'lucide-react';
-import type {CompanySuggestion} from '../../types/codal';
-import {searchMarketSymbols, validateFinancialStatementExport} from '../../lib/api';
+import {AlertCircle, Database, ExternalLink, Loader2, Search, X} from 'lucide-react';
+import type {CompanySuggestion, FinancialNoticeItem} from '../../types/codal';
+import {getFinancialNotices, searchMarketSymbols, validateFinancialStatementExport} from '../../lib/api';
 import {appConfig} from '../../config/appConfig';
 import CompanySearchCombobox from './CompanySearchCombobox';
 import SymbolHeader from './components/SymbolHeader';
@@ -12,6 +12,7 @@ import {
     type AggregatedData,
     type ConsolidationFilter,
     fetchAndAggregateStatements,
+    fetchStatementForNotice,
     type PeriodFilter,
     type RestatedFilter
 } from '../../services/codalAggregationService';
@@ -47,6 +48,8 @@ export default function FinancialStatementsApp() {
     const [consolidation, setConsolidation] = useState<ConsolidationFilter>('non-consolidated');
     const [restated, setRestated] = useState<RestatedFilter>('no');
     const [periodYears, setPeriodYears] = useState<PeriodFilter>(5);
+    const [snapshotNotices, setSnapshotNotices] = useState<FinancialNoticeItem[]>([]);
+    const [selectedSnapshotSerial, setSelectedSnapshotSerial] = useState('');
 
     // Data State
     const [aggregatedData, setAggregatedData] = useState<AggregatedData | null>(null);
@@ -59,6 +62,10 @@ export default function FinancialStatementsApp() {
     const aggregateAbortRef = useRef<AbortController | null>(null);
 
     const selectedSheet = getReportSheet(selectedSheetId);
+    const isSnapshotSheet = selectedSheet.group !== 'financial'
+        || selectedSheetId === 1060
+        || selectedSheetId === 1099;
+    const selectedSnapshotNotice = snapshotNotices.find((notice) => notice.letterSerial === selectedSnapshotSerial);
     const displayTable = aggregatedData
         ? transformStatementTable(aggregatedData.table, {
             detailMode: 'details',
@@ -82,14 +89,22 @@ export default function FinancialStatementsApp() {
 
         try {
             const selectedSheet = getReportSheet(selectedSheetId);
-            const data = await fetchAndAggregateStatements({
-                symbol: selectedCompany.symbol,
-                periodYears,
-                consolidation,
-                restated,
-                sheetId: selectedSheet.value,
-                sheetTitle: selectedSheet.fa,
-            }, controller.signal);
+            const data = isSnapshotSheet && selectedSnapshotNotice
+                ? await fetchStatementForNotice({
+                    symbol: selectedCompany.symbol,
+                    consolidation,
+                    sheetId: selectedSheet.value,
+                    sheetTitle: selectedSheet.fa,
+                    notice: selectedSnapshotNotice,
+                })
+                : await fetchAndAggregateStatements({
+                    symbol: selectedCompany.symbol,
+                    periodYears,
+                    consolidation,
+                    restated,
+                    sheetId: selectedSheet.value,
+                    sheetTitle: selectedSheet.fa,
+                }, controller.signal);
             if (requestVersionRef.current === requestVersion) {
                 setAggregatedData(data);
                 setError(null);
@@ -110,11 +125,35 @@ export default function FinancialStatementsApp() {
             }
             if (!silent && requestVersionRef.current === requestVersion) setLoading(false);
         }
-    }, [selectedCompany, selectedSheetId, consolidation, restated, periodYears]);
+    }, [selectedCompany, selectedSheetId, consolidation, restated, periodYears, isSnapshotSheet, selectedSnapshotNotice]);
 
     useEffect(() => {
         setSelectedSheetId((current) => sheetIdForConsolidation(current, consolidation));
     }, [consolidation]);
+
+    useEffect(() => {
+        setSelectedSnapshotSerial('');
+        if (!selectedCompany || !isSnapshotSheet) {
+            setSnapshotNotices([]);
+            return;
+        }
+        let cancelled = false;
+        void getFinancialNotices(selectedCompany.symbol, 1, 50)
+            .then((result) => {
+                if (cancelled) return;
+                setSnapshotNotices(result.notices.filter((notice) =>
+                    notice.fiscalYear !== null
+                    && notice.isConsolidated === (consolidation === 'consolidated')
+                    && notice.isRestated === (restated === 'yes')
+                ));
+            })
+            .catch(() => {
+                if (!cancelled) setSnapshotNotices([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedCompany, consolidation, restated, isSnapshotSheet]);
 
     useEffect(() => {
         const symbol = readQueryParam('symbol');
@@ -298,6 +337,23 @@ export default function FinancialStatementsApp() {
                             exportDisabled={!displayTable || loading}
                             exportError={exportError}
                         />
+                        {isSnapshotSheet && snapshotNotices.length > 0 ? (
+                            <label className="mt-3 flex flex-col gap-1.5 text-xs font-medium text-muted sm:max-w-xl">
+                                گزارش منبع
+                                <select
+                                    className="h-10 rounded-xl border border-border/70 bg-surface px-3 text-sm font-semibold text-text outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                                    onChange={(event) => setSelectedSnapshotSerial(event.target.value)}
+                                    value={selectedSnapshotSerial}
+                                >
+                                    <option value="">جدیدترین گزارش موجود</option>
+                                    {snapshotNotices.map((notice) => (
+                                        <option key={notice.letterSerial} value={notice.letterSerial}>
+                                            {notice.title} — انتشار {notice.publishDateTime}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        ) : null}
                     </div>
 
                     <section
@@ -320,6 +376,27 @@ export default function FinancialStatementsApp() {
                             </div>
                         ) : aggregatedData ? (
                             <div className="mt-4">
+                                {isSnapshotSheet && aggregatedData.columnMeta[0] ? (
+                                    <div
+                                        className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-6 text-muted">
+                                        <span>
+                                            {selectedSnapshotNotice ? 'گزارش انتخاب‌شده:' : 'این جدول مقایسه‌ای نیست و از جدیدترین گزارش موجود نمایش داده می‌شود:'}
+                                            {' '}دوره منتهی به {aggregatedData.columnMeta[0].periodEndDate.replace(/-/g, '/')}
+                                            {' '}— انتشار {aggregatedData.columnMeta[0].publishDateTime}.
+                                        </span>
+                                        {aggregatedData.columnMeta[0].reportUrl ? (
+                                            <a
+                                                className="inline-flex items-center gap-1 font-bold text-primary hover:underline"
+                                                href={aggregatedData.columnMeta[0].reportUrl}
+                                                rel="noreferrer"
+                                                target="_blank"
+                                            >
+                                                گزارش منبع کدال
+                                                <ExternalLink className="h-3.5 w-3.5"/>
+                                            </a>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                                 {aggregatedData.unavailableReportCount > 0 ? (
                                     <div
                                         className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-xs leading-6 text-warning">

@@ -1,5 +1,5 @@
-import {getAggregatedFinancialStatements} from '../lib/api';
-import type {AggregatedColumnMeta, StatementTable} from '../types/codal';
+import {getAggregatedFinancialStatements, getFinancialStatement} from '../lib/api';
+import type {AggregatedColumnMeta, FinancialNoticeItem, FinancialStatementResult, StatementTable} from '../types/codal';
 
 export type ConsolidationFilter = 'consolidated' | 'non-consolidated';
 export type RestatedFilter = 'yes' | 'no';
@@ -49,6 +49,43 @@ export function fetchAndAggregateStatements(
     }));
 }
 
+export function fetchStatementForNotice(
+    options: Omit<AggregationOptions, 'periodYears' | 'restated'> & { notice: FinancialNoticeItem }
+): Promise<AggregatedData> {
+    return getFinancialStatement(options.notice.letterSerial, options.sheetId, options.sheetTitle).then((result) => {
+        const sheet = findRequestedSheet(result, options.sheetId, options.sheetTitle);
+        if (!sheet) {
+            throw new Error(`شیت «${options.sheetTitle}» در گزارش انتخاب‌شده وجود ندارد.`);
+        }
+        const columnMeta: AggregatedColumnMeta[] = sheet.table.columns.map((column) => ({
+            columnId: column.id,
+            fiscalYear: options.notice.fiscalYear ?? 0,
+            periodEndDate: options.notice.periodEndDate,
+            publishDateTime: options.notice.publishDateTime,
+            letterSerial: options.notice.letterSerial,
+            reportUrl: options.notice.reportUrl,
+            tracingNumber: options.notice.tracingNumber,
+            isRestated: options.notice.isRestated,
+            isConsolidated: options.notice.isConsolidated,
+        }));
+        return {
+            symbol: options.symbol,
+            statementType: statementTypeForSheet(options.sheetId),
+            sheetId: options.sheetId,
+            title: sheet.title,
+            table: sheet.table,
+            reportCount: 1,
+            unavailableReportCount: 0,
+            columnMeta,
+        };
+    });
+}
+
+function findRequestedSheet(result: FinancialStatementResult, sheetId: number, sheetTitle: string) {
+    return result.statements.find((sheet) => sheet.sheetId === sheetId)
+        ?? result.statements.find((sheet) => sheet.title.trim() === sheetTitle.trim());
+}
+
 function statementTypeForSheet(sheetId: number): string {
     switch (sheetId) {
         case 13:
@@ -75,6 +112,8 @@ function statementTypeForSheet(sheetId: number): string {
             return 'mda-page-4';
         case 24:
             return 'mda-page-5';
+        case 25:
+            return 'mda-page-6';
         case 30:
             return 'board-members';
         case 51:
